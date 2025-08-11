@@ -1,0 +1,5 @@
+{
+  "rewrites": [
+    { "source": "/api/(.*)", "destination": "https://intense-mahalia-avtrkg-5c438e32.koyeb.app/" }
+  ]
+}
