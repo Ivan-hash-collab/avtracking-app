@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Avito Conversion Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js" defer></script>
+  <style>
+    :root{
+      --bg:#0b0d10; --panel:#12161b; --muted:#7f8a99; --text:#e8eef7; --brand:#4aa8ff;
+      --ok:#22c55e; --warn:#f59e0b; --danger:#ef4444; --card:#0f1318; --ring:#1f2937;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{margin:0;background:linear-gradient(180deg,#0b0d10,#0c1015 40%,#0b0d10);font-family:Inter,system-ui,"Segoe UI",Roboto,Emoji;color:var(--text)}
+    .wrap{max-width:1100px;margin:0 auto;padding:24px}
+    .hdr{display:flex;gap:14px;align-items:center;justify-content:space-between;margin-bottom:16px}
+    .hdr h1{font-size:20px;margin:0;font-weight:700;letter-spacing:.2px}
+    .cards{display:grid;grid-template-columns:repeat(12,1fr);gap:14px}
+    .card{grid-column:span 12;background:var(--panel);border:1px solid var(--ring);border-radius:16px;padding:16px;box-shadow:0 10px 30px rgba(0,0,0,.25)}
+    @media(min-width:880px){.card.half{grid-column:span 6}}
+    .toolbar{display:grid;grid-template-columns:1fr;gap:10px;margin-bottom:12px}
+    @media(min-width:760px){.toolbar{grid-template-columns:250px 160px 160px 1fr 120px}}
+    label{font-size:12px;color:var(--muted);display:block;margin-bottom:6px}
+    input,select,button{width:100%;background:#0f1318;border:1px solid #1e2630;color:var(--text);padding:10px 12px;border-radius:12px;outline:none}
+    input:focus,select:focus{border-color:#2b3a4a;box-shadow:0 0 0 4px rgba(74,168,255,.08)}
+    button{cursor:pointer;background:linear-gradient(180deg,#1678ff,#0f6be3);border:0;font-weight:600}
+    .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:10px 0 4px}
+    .kpi{background:var(--card);border:1px solid var(--ring);border-radius:12px;padding:12px}
+    .kpi .v{font-size:20px;font-weight:700}
+    .kpi .t{font-size:12px;color:var(--muted)}
+    canvas{width:100%;height:340px}
+    .notice{font-size:12px;color:var(--muted);margin-top:8px}
+    .footer{opacity:.7;font-size:12px;text-align:center;margin-top:18px}
+    .toggle{display:flex;align-items:center;gap:8px}
+    .toggle input{width:auto}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="hdr">
+      <h1>Avito Conversion Dashboard</h1>
+      <div class="toggle"><input id="demoToggle" type="checkbox" checked><label for="demoToggle">Демо‑данные</label></div>
+    </div>
+
+    <div class="card">
+      <div class="toolbar">
+        <div>
+          <label for="itemId">ID объявления</label>
+          <input id="itemId" placeholder="Напр.: 123456789" />
+        </div>
+        <div>
+          <label for="dateFrom">С даты</label>
+          <input id="dateFrom" type="date" />
+        </div>
+        <div>
+          <label for="dateTo">По дату</label>
+          <input id="dateTo" type="date" />
+        </div>
+        <div>
+          <label for="grouping">Группировка</label>
+          <select id="grouping">
+            <option value="day">По дням</option>
+            <option value="week">По неделям</option>
+            <option value="month">По месяцам</option>
+          </select>
+        </div>
+        <div style="display:flex;gap:8px;align-items:end">
+          <button id="loadBtn">Загрузить</button>
+        </div>
+      </div>
+
+      <div class="kpis" id="kpis">
+        <div class="kpi"><div class="v" id="kpiViews">—</div><div class="t">Просмотры</div></div>
+        <div class="kpi"><div class="v" id="kpiClicks">—</div><div class="t">Клики</div></div>
+        <div class="kpi"><div class="v" id="kpiContacts">—</div><div class="t">Контакты</div></div>
+        <div class="kpi"><div class="v" id="kpiSales">—</div><div class="t">Продажи</div></div>
+      </div>
+    </div>
+
+    <div class="cards">
+      <div class="card half">
+        <h3 style="margin:0 0 10px">Метрики</h3>
+        <canvas id="seriesChart"></canvas>
+        <div class="notice">Показывает динамику просмотров, кликов, контактов и продаж.
+          Если источник не возвращает какой‑то показатель (например, «клики»), он будет пропущен.</div>
+      </div>
+
+      <div class="card half">
+        <h3 style="margin:0 0 10px">Конверсии</h3>
+        <canvas id="convChart"></canvas>
+        <div class="notice">Конверсии: View→Click, Click→Contact, Contact→Sale, View→Sale.</div>
+      </div>
+
+      <div class="card">
+        <h3 style="margin:0 0 10px">Воронка (суммарно за период)</h3>
+        <canvas id="funnelChart"></canvas>
+      </div>
+
+      <div class="footer">Лёгкое SPA без серверных ключей. Для реальных данных подключите прокси‑бэкенд → /api/stats</div>
+    </div>
+  </div>
+
+  <script>
+    // ====== Demo dataset (one month) ======
+    const demoData = {
+      itemId: "123456789",
+      series: [
+        { date: "2025-07-01", views: 52, clicks: 20, contacts: 6, calls: 2, sales: 1 },
+        { date: "2025-07-02", views: 60, clicks: 18, contacts: 5, calls: 1, sales: 1 },
+        { date: "2025-07-03", views: 55, clicks: 19, contacts: 7, calls: 2, sales: 1 },
+        { date: "2025-07-04", views: 70, clicks: 24, contacts: 8, calls: 3, sales: 1 },
+        { date: "2025-07-05", views: 62, clicks: 22, contacts: 6, calls: 2, sales: 0 },
+        { date: "2025-07-06", views: 68, clicks: 26, contacts: 9, calls: 3, sales: 2 },
+        { date: "2025-07-07", views: 75, clicks: 28, contacts: 10, calls: 3, sales: 1 },
+        { date: "2025-07-08", views: 66, clicks: 24, contacts: 7, calls: 2, sales: 1 },
+        { date: "2025-07-09", views: 61, clicks: 21, contacts: 6, calls: 1, sales: 0 },
+        { date: "2025-07-10", views: 80, clicks: 30, contacts: 11, calls: 4, sales: 2 },
+        { date: "2025-07-11", views: 78, clicks: 31, contacts: 10, calls: 3, sales: 1 },
+        { date: "2025-07-12", views: 72, clicks: 27, contacts: 9, calls: 2, sales: 1 },
+        { date: "2025-07-13", views: 64, clicks: 23, contacts: 7, calls: 2, sales: 1 },
+        { date: "2025-07-14", views: 69, clicks: 25, contacts: 9, calls: 3, sales: 1 },
+        { date: "2025-07-15", views: 73, clicks: 27, contacts: 10, calls: 3, sales: 2 }
+      ]
+    };
+
+    // ====== Helpers ======
+    function groupByPeriod(series, period){
+      // series: [{date: YYYY-MM-DD, ...}]
+      const byKey = new Map();
+      for(const p of series){
+        const d = new Date(p.date + 'T00:00:00');
+        let key;
+        if(period === 'week'){
+          // ISO week key
+          const tmp = new Date(d.getTime());
+          const day = (d.getUTCDay() + 6) % 7; // Mon=0
+          tmp.setUTCDate(d.getUTCDate() - day);
+          key = tmp.toISOString().slice(0,10);
+        } else if(period === 'month'){
+          key = `${d.getUTCFullYear()}-${String(d.getUTCMonth()+1).padStart(2,'0')}-01`;
+        } else {
+          key = d.toISOString().slice(0,10);
+        }
+        if(!byKey.has(key)) byKey.set(key,{date:key,views:0,clicks:0,contacts:0,calls:0,sales:0});
+        const acc = byKey.get(key);
+        acc.views += p.views||0; acc.clicks += p.clicks||0; acc.contacts += p.contacts||0; acc.calls += p.calls||0; acc.sales += p.sales||0;
+      }
+      return Array.from(byKey.values()).sort((a,b)=>a.date.localeCompare(b.date));
+    }
+
+    function sum(arr, key){return arr.reduce((s,x)=>s+(x[key]||0),0)}
+    function pct(num, den){ if(!den) return null; return (num/den)*100 }
+    function fmt(n){ return n==null? '—' : new Intl.NumberFormat('ru-RU').format(Math.round(n)) }
+    function fmtPct(v){ return v==null? '—' : (Math.round(v*10)/10)+"%" }
+
+    // ====== Charts ======
+    let seriesChart, convChart, funnelChart;
+    function buildSeriesChart(ctx, rows){
+      const labels = rows.map(r=>r.date);
+      const datasets = [];
+      const make = (label, key) => ({
+        label, data: rows.map(r=>r[key]||0),
+        tension:.25, pointRadius:2, borderWidth:2, fill:false
+      });
+      datasets.push(make('Просмотры', 'views'));
+      if(rows.some(r=>r.clicks!=null)) datasets.push(make('Клики', 'clicks'));
+      datasets.push(make('Контакты', 'contacts'));
+      datasets.push(make('Продажи', 'sales'));
+      return new Chart(ctx, {
+        type:'line',
+        data:{labels, datasets},
+        options:{
+          responsive:true, maintainAspectRatio:false,
+          interaction:{mode:'index', intersect:false},
+          plugins:{ legend:{labels:{color:'#cbd5e1'}}, tooltip:{callbacks:{
+            label: (c)=> `${c.dataset.label}: ${fmt(c.parsed.y)}`
+          }}},
+          scales:{ x:{ticks:{color:'#94a3b8'}}, y:{ticks:{color:'#94a3b8'}, grid:{color:'#233044'}} }
+        }
+      });
+    }
+
+    function buildConvChart(ctx, rows){
+      const labels = rows.map(r=>r.date);
+      const convs = {
+        v2c: rows.map(r=>pct(r.clicks, r.views)),
+        c2ct: rows.map(r=>pct(r.contacts, r.clicks)),
+        ct2s: rows.map(r=>pct(r.sales, r.contacts)),
+        v2s: rows.map(r=>pct(r.sales, r.views))
+      };
+      return new Chart(ctx, {
+        type:'line',
+        data:{ labels, datasets:[
+          {label:'View→Click', data:convs.v2c, tension:.25, pointRadius:2, borderWidth:2},
+          {label:'Click→Contact', data:convs.c2ct, tension:.25, pointRadius:2, borderWidth:2},
+          {label:'Contact→Sale', data:convs.ct2s, tension:.25, pointRadius:2, borderWidth:2},
+          {label:'View→Sale', data:convs.v2s, tension:.25, pointRadius:2, borderWidth:2}
+        ]},
+        options:{
+          responsive:true, maintainAspectRatio:false,
+          interaction:{mode:'index', intersect:false},
+          plugins:{ legend:{labels:{color:'#cbd5e1'}}, tooltip:{callbacks:{
+            label: (c)=> `${c.dataset.label}: ${fmtPct(c.parsed.y)}`
+          }}},
+          scales:{ x:{ticks:{color:'#94a3b8'}}, y:{ticks:{callback:(v)=>v+"%", color:'#94a3b8'}, grid:{color:'#233044'}} }
+        }
+      });
+    }
+
+    function buildFunnelChart(ctx, rows){
+      const V=sum(rows,'views'), Ck=sum(rows,'clicks'), Ct=sum(rows,'contacts'), S=sum(rows,'sales');
+      const labels=['Просмотры','Клики','Контакты','Продажи'];
+      const data=[V, Ck||0, Ct, S];
+      return new Chart(ctx, {
+        type:'bar',
+        data:{ labels, datasets:[{ label:'Всего за период', data, borderWidth:1 }] },
+        options:{
+          responsive:true, maintainAspectRatio:false,
+          plugins:{ legend:{display:false}, tooltip:{callbacks:{
+            label: (c)=> `${c.label}: ${fmt(c.parsed.y)}`
+          }}},
+          scales:{ x:{ticks:{color:'#94a3b8'}}, y:{ticks:{color:'#94a3b8'}, grid:{color:'#233044'}} }
+        }
+      });
+    }
+
+    function refreshKpis(rows){
+      const V=sum(rows,'views'), Ck=sum(rows,'clicks'), Ct=sum(rows,'contacts'), S=sum(rows,'sales');
+      document.getElementById('kpiViews').textContent = fmt(V);
+      document.getElementById('kpiClicks').textContent = fmt(Ck);
+      document.getElementById('kpiContacts').textContent = fmt(Ct);
+      document.getElementById('kpiSales').textContent = fmt(S);
+    }
+
+    function destroyCharts(){
+      for(const ch of [seriesChart, convChart, funnelChart]){ try{ ch && ch.destroy() }catch(e){} }
+    }
+
+    async function loadData(){
+      const itemId = document.getElementById('itemId').value.trim() || demoData.itemId;
+      const grouping = document.getElementById('grouping').value;
+      const dateFrom = document.getElementById('dateFrom').value || '2025-07-01';
+      const dateTo   = document.getElementById('dateTo').value   || '2025-07-15';
+      const useDemo = document.getElementById('demoToggle').checked;
+
+      let raw;
+      if(useDemo){ raw = demoData }
+      else {
+        // IMPORTANT: this endpoint must be implemented on your server (see README in chat)
+        const qs = new URLSearchParams({itemId, dateFrom, dateTo, grouping});
+        const res = await fetch(`/api/stats?${qs.toString()}`);
+        if(!res.ok) throw new Error('Ошибка загрузки /api/stats');
+        raw = await res.json();
+      }
+
+      const grouped = groupByPeriod(raw.series, grouping);
+      destroyCharts();
+      refreshKpis(grouped);
+      seriesChart = buildSeriesChart(document.getElementById('seriesChart'), grouped);
+      convChart   = buildConvChart(document.getElementById('convChart'), grouped);
+      funnelChart = buildFunnelChart(document.getElementById('funnelChart'), grouped);
+    }
+
+    // Init defaults
+    (function init(){
+      const now = new Date();
+      const d2 = now.toISOString().slice(0,10);
+      const d1 = new Date(now.getTime()-14*864e5).toISOString().slice(0,10);
+      document.getElementById('dateFrom').value = d1;
+      document.getElementById('dateTo').value   = d2;
+      document.getElementById('itemId').value   = demoData.itemId;
+      document.getElementById('loadBtn').addEventListener('click', loadData);
+      loadData();
+    })();
+  </script>
+</body>
+</html>
